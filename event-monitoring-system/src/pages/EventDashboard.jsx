@@ -51,7 +51,7 @@ export const EventDashboard = () => {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Event Monitoring System</h1>
+      <h1 className="text-2xl font-bold mb-4">Event Logging System</h1>
       
       <div className="mb-8">
         <EventsChart events={events} />
