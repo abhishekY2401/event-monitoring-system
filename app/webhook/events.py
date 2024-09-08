@@ -41,9 +41,9 @@ class PushEvent(GitHubEvent):
 
         super().__init__(action_type, repository, sender, timestamp)
 
-        self.from_branch = payload['ref'].split('/')[-1]
+        self.from_branch = None
         self.request_id = payload['after']
-        self.to_branch = None
+        self.to_branch = payload['ref'].split('/')[-1]
 
     def to_dict(self):
 
@@ -97,24 +97,29 @@ class MergeEvent(GitHubEvent):
     def __init__(self, payload):
         action_type = 'MERGE'
         repository = payload['repository']
-        owner = payload['repository']['owner']
-        timestamp = payload['repository']['updated_at']
+        owner = payload['pull_request']['user']
+        timestamp = payload['pull_request']['merged_at']
 
         super().__init__(action_type, repository, owner, timestamp)
 
+        self.from_branch = payload['pull_request']['head']['ref']
+        self.request_id = payload['pull_request']['merge_commit_sha']
+        self.to_branch = payload['pull_request']['base']['ref']
+
         self.merge_commit = {
-            'sha': payload['merge_commit']['sha'],
-            'message': payload['merge_commit']['message']
-        }
-        self.pull_request = {
             'title': payload['pull_request']['title'],
-            'html_url': payload['pull_request']['html_url']
+            'state': payload['pull_request']['state'],
+            'merged': payload['pull_request']['merged'],
+            'html_url': payload['pull_request']['html_url'],
+            'merged_by': payload['pull_request']['merged_by']['login']
         }
 
     def to_dict(self):
         data = {
+            'request_id': self.request_id,
+            'from_branch': self.from_branch,
+            'to_branch': self.to_branch,
             'merge_commit': self.merge_commit,
-            'pull_request': self.pull_request,
             'author': self.author['name'],
             'action-type': self.action_type,
             'timestamp': self.timestamp
@@ -128,8 +133,8 @@ def create_event(request, payload):
     if event_type == 'push':
         return PushEvent(payload)
 
-    elif event_type == 'pull_request':
+    elif event_type == 'pull_request' and payload['action'] == 'opened':
         return PullRequestEvent(payload)
 
-    elif event_type == 'merge':
+    elif event_type == 'pull_request' and payload['action'] == 'closed':
         return MergeEvent(payload)
