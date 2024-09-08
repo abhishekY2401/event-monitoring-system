@@ -32,13 +32,15 @@ const processEventData = (data) => {
     });
 
     if (!result[formattedDate]) {
-      result[formattedDate] = { commits: 0, prs: 0 };
+      result[formattedDate] = { commits: 0, prs: 0, merged: 0 };
     }
 
     if (event["action-type"].toLowerCase() === "push") {
       result[formattedDate].commits += 1;
     } else if (event["action-type"].toLowerCase() === "pull_request") {
       result[formattedDate].prs += 1;
+    } else if (event["action-type"].toLowerCase() === "merge") {
+      result[formattedDate].merged += 1;
     }
   });
 
@@ -47,6 +49,7 @@ const processEventData = (data) => {
     date: date,
     commits: result[date].commits,
     prs: result[date].prs,
+    merged: result[date].merged
   }));
 };
 
@@ -55,13 +58,17 @@ export function EventsChart({events}) {
   const chartData = processEventData(events);
 
   const chartConfig = {
-    desktop: {
-      label: "Commits",
+    commits: {
+      label: "commits",
       color: "hsl(var(--chart-1))",
     },
-    mobile: {
-      label: "PRs",
+    prs: {
+      label: "prs",
       color: "hsl(var(--chart-2))",
+    },
+    merged: {
+      label: "merged_pr",
+      color: "hsl(var(--chart-5))",
     },
   }
 
@@ -90,8 +97,10 @@ export function EventsChart({events}) {
               cursor={false}
               content={<ChartTooltipContent />}
             />
-            <Bar dataKey="commits" fill="var(--color-desktop)" radius={4} />
-            <Bar dataKey="prs" fill="var(--color-mobile)" radius={4} />
+            <Bar dataKey="commits" fill="var(--color-commits)" radius={4} />
+            <Bar dataKey="prs" fill="var(--color-prs)" radius={4} />
+            <Bar dataKey="merged" fill="var(--color-merged)" radius={4} />
+
           </BarChart>
         </ChartContainer>
       </CardContent>
