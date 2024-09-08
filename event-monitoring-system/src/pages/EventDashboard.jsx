@@ -39,7 +39,7 @@ export const EventDashboard = () => {
     // Set interval to fetch every 15 seconds
     const interval = setInterval(() => {
       getEvents();
-    }, 20000);
+    }, 15000);
 
     // Clear interval on component unmount
     return () => clearInterval(interval);
