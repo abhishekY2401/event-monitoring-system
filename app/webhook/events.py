@@ -1,5 +1,11 @@
 import pytz
 from datetime import datetime
+import logging
+
+logging.basicConfig(level=logging.INFO,  # Adjust level as needed
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubEvent:
@@ -21,6 +27,9 @@ class GitHubEvent:
             'url': sender['html_url']
         }
         self.timestamp = timestamp
+
+        logger.info(f'Created {self.action_type} event for repository {
+                    self.repository["full_name"]} by {self.author["name"]} at {self.timestamp}')
 
     def to_dict(self):
 
@@ -51,15 +60,20 @@ class PushEvent(GitHubEvent):
         self.request_id = payload['after']
         self.to_branch = payload['ref'].split('/')[-1]
 
+        logger.info(f'PushEvent created with request_id {self.request_id} from branch {
+                    self.from_branch} to branch {self.to_branch}')
+
     def convert_to_utc_z_format(self, timestamp):
-        # Parse the timestamp
-        dt = datetime.fromisoformat(timestamp)
+        try:
+            # Parse the timestamp
+            dt = datetime.fromisoformat(timestamp)
+            dt_utc = dt.astimezone(pytz.UTC)
 
-        # Convert to UTC
-        dt_utc = dt.astimezone(pytz.UTC)
-
-        # Return in ISO 8601 format with 'Z'
-        return dt_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+            # Return in ISO 8601 format to store in mongo database
+            return dt_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+        except Exception as e:
+            logger.error(f'Error converting timestamp: {e}')
+            raise
 
     def to_dict(self):
 
@@ -95,6 +109,10 @@ class PullRequestEvent(GitHubEvent):
             'merged': payload['pull_request']['merged'],
             'html_url': payload['pull_request']['html_url']
         }
+        
+        logger.info(f'PullRequestEvent created with request_id {
+                    self.request_id} from branch {self.from_branch} to branch {self.to_branch}')
+
 
     def to_dict(self):
         data = {
@@ -129,6 +147,10 @@ class MergeEvent(GitHubEvent):
             'html_url': payload['pull_request']['html_url'],
             'merged_by': payload['pull_request']['merged_by']['login']
         }
+        
+        logger.info(f'MergeEvent created with request_id {self.request_id} from branch {
+                    self.from_branch} to branch {self.to_branch}')
+
 
     def to_dict(self):
         data = {
@@ -145,6 +167,7 @@ class MergeEvent(GitHubEvent):
 
 def create_event(request, payload):
     event_type = request.headers.get('x-github-event')
+    logger.debug(f'Creating event for type: {event_type}')
 
     if event_type == 'push':
         return PushEvent(payload)
@@ -154,3 +177,6 @@ def create_event(request, payload):
 
     elif event_type == 'pull_request' and payload['action'] == 'closed':
         return MergeEvent(payload)
+
+    logger.warning(f'Unsupported event type: {event_type}')
+    return None
