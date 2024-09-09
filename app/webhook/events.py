@@ -1,3 +1,7 @@
+import pytz
+from datetime import datetime
+
+
 class GitHubEvent:
 
     # initialize github event specific data
@@ -37,13 +41,25 @@ class PushEvent(GitHubEvent):
         action_type = 'PUSH'
         repository = payload['repository']
         sender = payload['sender']
-        timestamp = payload['head_commit']['timestamp']
+        raw_timestamp = payload['head_commit']['timestamp']
+
+        timestamp = self.convert_to_utc_z_format(raw_timestamp)
 
         super().__init__(action_type, repository, sender, timestamp)
 
         self.from_branch = None
         self.request_id = payload['after']
         self.to_branch = payload['ref'].split('/')[-1]
+
+    def convert_to_utc_z_format(self, timestamp):
+        # Parse the timestamp
+        dt = datetime.fromisoformat(timestamp)
+
+        # Convert to UTC
+        dt_utc = dt.astimezone(pytz.UTC)
+
+        # Return in ISO 8601 format with 'Z'
+        return dt_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     def to_dict(self):
 
