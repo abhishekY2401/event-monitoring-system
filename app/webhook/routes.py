@@ -3,9 +3,14 @@ from ..extensions import collection
 from .events import create_event
 import datetime
 import logging
-from dateutil import parser as date_parser
+import pytz
 
 webhook = Blueprint('Webhook', __name__, url_prefix='/webhook')
+
+logging.basicConfig(level=logging.INFO,  # Adjust level as needed (DEBUG, INFO, WARNING, ERROR)
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+logger = logging.getLogger(__name__)
 
 # helper function to convert the object id into string
 
@@ -26,8 +31,14 @@ def receiver():
         payload = request.json
         event = create_event(request, payload)
 
-        # Insert event data into MongoDB
-        collection.insert_one(event.to_dict())
+        try:
+            # Store event data into MongoDB
+            collection.insert_one(event.to_dict())
+            logger.info('Event inserted successfully')
+
+        except Exception as e:
+            logger.error('Error inserting event: %s', str(e))
+            return jsonify({"error": "Failed to insert event"}), 500
 
     return jsonify({'status': 'success'}), 200
 
@@ -40,43 +51,33 @@ def get_all_events():
         # convert the ids into string, bcoz ObjectId is not json serializable
         events = [convert_objectId(event) for event in events]
 
+        logger.info('Fetched %d events', len(events))
+
         return jsonify(events), 200
+
     except Exception as e:
+        logger.error('Error fetching all events: %s', str(e))
         return jsonify({"error": str(e)}), 500
 
 
 @webhook.route('/latest-events', methods=['GET'])
 def get_latest_events():
     try:
-        # Get latest timestamp and count from query params
-        latest_action_timestamp = request.args.get('latest_timestamp')
-        print(latest_action_timestamp)
-        new_events = []
+        latest_timestamp = request.args.get('latest_timestamp')
+        logger.info(
+            'Received latest event timestamp: %s', latest_timestamp)
 
-        # If subsequent requests, fetch events newer than the latest timestamp
-        if latest_action_timestamp:
-            converted_timestamp = date_parser.isoparse(
-                latest_action_timestamp).astimezone(None)
-            print(f"Converted timestamp: {converted_timestamp}")
+        if latest_timestamp:
+            # Fetch new events since the last timestamp
+            query = {"timestamp": {"$gt": latest_timestamp}}
+            # print("newquery:", query)
+            new_events = list(collection.find(query).sort("timestamp", -1))
 
-            event = collection.find_one({
-                {"timestamp": {"$eq": converted_timestamp}},
-            })
-
-            print(event)
-
-            # Fetch only the new events with timestamp greater than the last known timestamp
-            new_events = list(collection.find(
-                {"timestamp": {"$gt": converted_timestamp}},
-            ))
-
-            print("latest_events: ", new_events)
-
-        # Convert ObjectId into a string to avoid JSON serialization errors
         latest_events = [convert_objectId(event) for event in new_events]
 
+        logger.info('Fetched %d latest events', len(latest_events))
         return jsonify(latest_events), 200
 
     except Exception as e:
-        logging.exception("Error fetching events")
+        logger.error('Error fetching latest events: %s', str(e))
         return jsonify({"error": str(e)}), 500
