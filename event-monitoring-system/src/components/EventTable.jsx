@@ -21,6 +21,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const formatDate = (timestamp) => {
+  const date = new Date(timestamp);
+
+  // Array of month names
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  // Get day with suffix
+  const day = date.getUTCDate();
+  const suffix = day % 10 === 1 && day !== 11 ? 'st' :
+                 day % 10 === 2 && day !== 12 ? 'nd' :
+                 day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+  const dayWithSuffix = `${day}${suffix}`;
+
+  // Format time
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const formattedHours = hours % 12 || 12; // Convert 24-hour time to 12-hour
+  const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+  return `${dayWithSuffix} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()} - ${formattedHours}:${formattedMinutes} ${ampm} UTC`;
+};
+
 export const columns = [
 
   {
@@ -63,8 +89,8 @@ export const columns = [
     header: () => <div>Timestamp</div>,
     cell: ({ row }) => {
       const timestamp = row.getValue("timestamp");
-      const utcDate = new Date(timestamp).toUTCString(); // Convert to UTC format
-      return <div className="font-medium">{utcDate}</div>;
+      const formattedDate = formatDate(timestamp);
+      return <div className="font-medium">{formattedDate}</div>;
     },
   },
 ];
@@ -136,7 +162,7 @@ export const EventTable = ({ events }) => {
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground dark:text-gray-400">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+          {table.getFilteredRowModel().rows.length} row(s).
         </div>
         <div className="space-x-2">
           <Button

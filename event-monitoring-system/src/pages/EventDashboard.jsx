@@ -1,49 +1,66 @@
 import { useEffect, useState } from "react";
-import { fetchEvents } from "@/services/api";
+import { fetchLatestEvents, fetchAllEvents } from "@/services/api";
 import { EventTable } from "@/components/EventTable";
 import { EventsChart } from "@/components/EventsChart";
 
 export const EventDashboard = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [latestTimestamp, setLatestTimestamp] = useState(null);
 
-  // append the new evenets to existing events array
+  // Append new events to existing events array
   const appendNewEvents = (newEvents) => {
     setEvents((prevEvents) => {
-        const existingIds = prevEvents.map((event) => event.request_id)
-        const filterNewEvents = newEvents.filter(
-            (event) => !existingIds.includes(event.request_id) 
-        )
-        return [...prevEvents, ...filterNewEvents];
-    })
-  }
+      const existingIds = prevEvents.map((event) => event.request_id);
+      const filterNewEvents = newEvents.filter(
+        (event) => !existingIds.includes(event.request_id)
+      );
+      return [...prevEvents, ...filterNewEvents];
+    });
+  };
 
   // Fetch events from MongoDB
-  const getEvents = async () => {
+  const getLatestEvents = async () => {
     try {
-        setLoading(true);
-        const eventData = await fetchEvents();
+      const eventData = await fetchLatestEvents(latestTimestamp); // Await the promise
+      if (eventData.length > 0) {
         appendNewEvents(eventData);
-        setEvents(eventData);
-        setLoading(false);
+
+        // Update the latest timestamp based on the most recent event
+        const latestEvent = eventData[eventData.length - 1];
+        setLatestTimestamp(latestEvent.timestamp); // Set the new latest timestamp after fetching new events
+      }
+      setLoading(false);
     } catch (error) {
-        console.error("Error fetching events:", error);
-        setLoading(false);
+      console.error("Error fetching events:", error);
+      setLoading(false);
     }
   };
 
-  // Fetch every 15 seconds
   useEffect(() => {
-    getEvents(); // component is mounted for the first time
+    // Fetch all events on component mount
+    const fetchAllEventsData = async () => {
+      try {
+        const allEventsData = await fetchAllEvents(); // Await the promise
+        setEvents(allEventsData);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching all events:", error);
+        setLoading(false);
+      }
+    };
 
-    // Set interval to fetch every 15 seconds
+    fetchAllEventsData(); // Call the async function
+  }, []);
+
+  // Fetch latest events every 15 seconds
+  useEffect(() => {
     const interval = setInterval(() => {
-      getEvents();
+      getLatestEvents();
     }, 15000);
 
-    // Clear interval on component unmount
-    return () => clearInterval(interval);
-  }, []); // Dependency array ensures useEffect runs only once on mount
+    return () => clearInterval(interval); // Clear interval on component unmount
+  }, [latestTimestamp]); // Dependency array includes latestTimestamp
 
   if (loading && events.length === 0) {
     return <div>Loading events...</div>;
@@ -52,11 +69,11 @@ export const EventDashboard = () => {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Event Logging System</h1>
-      
+
       <div className="mb-8">
         <EventsChart events={events} />
       </div>
-      
+
       <EventTable events={events} />
     </div>
   );
