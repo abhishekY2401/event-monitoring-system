@@ -21,6 +21,8 @@ export const EventDashboard = () => {
 
   // Fetch events from MongoDB
   const getLatestEvents = async () => {
+    if (!latestTimestamp) return; // Prevent fetch if no timestamp is set
+
     try {
       const eventData = await fetchLatestEvents(latestTimestamp); // Await the promise
       if (eventData.length > 0) {
@@ -32,7 +34,7 @@ export const EventDashboard = () => {
       }
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching events:", error);
+      console.error("Error fetching latest events:", error);
       setLoading(false);
     }
   };
@@ -44,6 +46,12 @@ export const EventDashboard = () => {
         const allEventsData = await fetchAllEvents(); // Await the promise
         setEvents(allEventsData);
         setLoading(false);
+
+        // Set the initial latestTimestamp if there are events
+        if (allEventsData.length > 0) {
+          const latestEvent = allEventsData[allEventsData.length - 1];
+          setLatestTimestamp(latestEvent.timestamp);
+        }
       } catch (error) {
         console.error("Error fetching all events:", error);
         setLoading(false);
